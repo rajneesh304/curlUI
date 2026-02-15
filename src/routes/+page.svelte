@@ -8,6 +8,11 @@
 	import { invoke } from "@tauri-apps/api/core";
 	import { untrack } from "svelte";
 
+	// For Send dropdown
+	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+	import ChevronDown from "lucide-svelte/icons/chevron-down";
+	import Terminal from "lucide-svelte/icons/terminal";
+
 	// --- Response Header ---
 	let responseHeaders = $state<Record<string, string>>({}); // <-- Add this
 	let responseTab = $state("body"); // Add this to control the bottom tabs
@@ -223,6 +228,38 @@
 			isRequesting = false;
 		}
 	}
+
+	// Copy request as cURL
+	function copyAsCurl() {
+		if (!url) return;
+
+		// Start the command with the method and URL
+		let curlStr = `curl -X ${method} '${url}'`;
+
+		// Inject active headers
+		requestHeaders.forEach((h) => {
+			if (h.enabled && h.key.trim() !== "") {
+				// Escape single quotes in header values
+				const safeValue = h.value.replace(/'/g, "'\\''");
+				curlStr += ` \\\n  -H '${h.key.trim()}: ${safeValue}'`;
+			}
+		});
+
+		// Inject the body if it's not a GET request and the body has content
+		if (method !== "GET" && method !== "HEAD" && requestBody.trim() !== "") {
+			const safeBody = requestBody.replace(/'/g, "'\\''");
+			curlStr += ` \\\n  -d '${safeBody}'`;
+		}
+
+		// Copy to clipboard
+		navigator.clipboard
+			.writeText(curlStr)
+			.then(() => {
+				console.log("Copied cURL to clipboard:\n", curlStr);
+				// Optional: We can add a toast notification here later!
+			})
+			.catch((err) => console.error("Failed to copy cURL:", err));
+	}
 </script>
 
 <div
@@ -249,14 +286,32 @@
 			class="bg-muted/20 flex-1 font-mono"
 		/>
 
-		<Button
-			variant="default"
-			class="w-24 font-bold tracking-wider"
-			onclick={handleSend}
-			disabled={isRequesting}
-		>
-			{isRequesting ? "Sending..." : "Send"}
-		</Button>
+		<div class="flex">
+			<Button
+				variant="default"
+				class="w-24 font-bold tracking-wider rounded-r-none"
+				onclick={handleSend}
+				disabled={isRequesting}
+			>
+				{isRequesting ? "Sending" : "Send"}
+			</Button>
+
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger
+					class="flex items-center justify-center rounded-r-md bg-primary px-2 text-primary-foreground hover:bg-primary/90 border-l border-primary-foreground/20 transition-colors disabled:opacity-50"
+					disabled={isRequesting}
+				>
+					<ChevronDown class="h-4 w-4" />
+				</DropdownMenu.Trigger>
+
+				<DropdownMenu.Content align="end" class="w-48">
+					<DropdownMenu.Item onclick={copyAsCurl} class="cursor-pointer">
+						<Terminal class="mr-2 h-4 w-4" />
+						<span>Copy as cURL</span>
+					</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		</div>
 	</header>
 
 	<main class="flex-1 overflow-hidden">
