@@ -28,6 +28,14 @@ struct ResponsePayload {
 // 3. The Tauri Command that gets invoked by JavaScript
 #[tauri::command]
 async fn perform_request(request: RequestPayload) -> Result<ResponsePayload, String> {
+    
+    // Logs for checking headers
+    // println!("----------------------------------------");
+    // println!("🚀 RUST RECEIVED REQUEST: {} {}", request.method, request.url);
+    // println!("📋 HEADERS: {:#?}", request.headers);
+    // println!("----------------------------------------");
+
+
     let client = Client::new();
     
     // Safely parse the HTTP Method (GET, POST, etc.)
