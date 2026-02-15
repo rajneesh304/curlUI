@@ -72,11 +72,10 @@ This project is in the early stages of development. The basic functionality is i
 - **Response Viewer:** Displays the response body (with JSON formatting), HTTP status code, and response time.
 - **Backend Engine:** Uses a capable Rust backend with the `reqwest` library to handle the actual HTTP logic.
 - **UI Structure:** A modern, resizable, tabbed interface is in place for organizing request and response views.
+- **Request Headers:** Built UI for managing headers.
+- **URL Query Parameters:** Built UI for managing query parameters.
 
 ### Pending
-
-- **Request Headers:** The UI for adding/editing request headers needs to be built. The backend is already capable of processing them.
-- **URL Query Parameters:** The UI for adding/editing query parameters is a placeholder.
 - **Authentication:** The UI for managing authentication (e.g., Bearer Token, Basic Auth) is a placeholder.
 - **Response Headers:** The backend sends response headers, but the frontend does not display them.
 - **Request History:** The ability to view, search, and re-run past requests.
