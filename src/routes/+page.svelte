@@ -6,6 +6,103 @@
 	import * as Tabs from "$lib/components/ui/tabs/index.js";
 	import MonacoEditor from "$lib/components/MonacoEditor.svelte";
 	import { invoke } from "@tauri-apps/api/core";
+	import { untrack } from "svelte";
+	// --- QUERY PARAMS STATE ---
+	type QueryParam = {
+		id: string;
+		key: string;
+		value: string;
+		enabled: boolean;
+	};
+
+	let queryParams = $state<QueryParam[]>([
+		{ id: crypto.randomUUID(), key: "", value: "", enabled: true },
+	]);
+
+	function addQueryParam() {
+		queryParams.push({
+			id: crypto.randomUUID(),
+			key: "",
+			value: "",
+			enabled: true,
+		});
+	}
+
+	function removeQueryParam(id: string) {
+		queryParams = queryParams.filter((p) => p.id !== id);
+		if (queryParams.length === 0) addQueryParam();
+	}
+
+	// --- TWO-WAY SYNC LOGIC ---
+
+	// 1. Sync: URL Bar -> Params Table
+	$effect(() => {
+		const currentUrl = url; // Register URL as the ONLY dependency
+
+		untrack(() => {
+			try {
+				const parsedUrl = new URL(currentUrl);
+				const urlParams = parsedUrl.searchParams;
+
+				// Build a string of what the table currently represents
+				const tableParams = new URLSearchParams();
+				queryParams.forEach((p) => {
+					if (p.enabled && p.key) tableParams.append(p.key, p.value);
+				});
+
+				// THE LOOP BREAKER: If the URL and Table already match, abort instantly!
+				if (urlParams.toString() === tableParams.toString()) return;
+
+				// They don't match, so update the table to match the URL
+				const updatedParams = Array.from(urlParams.entries()).map(
+					([key, value], index) => ({
+						id: queryParams[index]?.id || crypto.randomUUID(), // Reuse IDs so focus isn't lost
+						key,
+						value,
+						enabled: true,
+					}),
+				);
+
+				// Always keep one empty row at the bottom for typing
+				updatedParams.push({
+					id: crypto.randomUUID(),
+					key: "",
+					value: "",
+					enabled: true,
+				});
+
+				queryParams = updatedParams;
+			} catch (e) {
+				// Ignore incomplete URLs while the user is typing
+			}
+		});
+	});
+
+	// 2. Sync: Params Table -> URL Bar
+	$effect(() => {
+		// Register the table structure as the ONLY dependency
+		const paramsTracker = JSON.stringify(queryParams);
+
+		untrack(() => {
+			try {
+				const urlObj = new URL(url);
+
+				const tableParams = new URLSearchParams();
+				queryParams.forEach((p) => {
+					if (p.enabled && p.key) tableParams.append(p.key, p.value);
+				});
+
+				// THE LOOP BREAKER: If the Table and URL already match, abort instantly!
+				if (urlObj.searchParams.toString() === tableParams.toString()) return;
+
+				// They don't match, so update the URL to match the table
+				urlObj.search = tableParams.toString();
+				url = urlObj.toString();
+			} catch (e) {
+				// Ignore if the base URL is invalid
+			}
+		});
+	});
 
 	// Svelte 5 Runes for highly reactive state management
 	let url = $state("https://jsonplaceholder.typicode.com/todos/1");
@@ -169,10 +266,68 @@
 						<div
 							class="bg-muted/10 mt-4 flex-1 overflow-y-auto rounded-md border p-4"
 						>
-							<Tabs.Content value="params" class="m-0 h-full">
-								<p class="text-muted-foreground text-sm">
-									URL Query parameters editor will go here.
-								</p>
+							<Tabs.Content
+								value="params"
+								class="m-0 h-full flex flex-col gap-4"
+							>
+								<Table.Root>
+									<Table.Header>
+										<Table.Row>
+											<Table.Head class="w-[50px] text-center">Use</Table.Head>
+											<Table.Head>Key</Table.Head>
+											<Table.Head>Value</Table.Head>
+											<Table.Head class="w-[50px]"></Table.Head>
+										</Table.Row>
+									</Table.Header>
+									<Table.Body>
+										{#each queryParams as param (param.id)}
+											<Table.Row
+												class={!param.enabled
+													? "opacity-40 grayscale transition-opacity"
+													: "transition-opacity"}
+											>
+												<Table.Cell class="text-center align-middle">
+													<Checkbox bind:checked={param.enabled} />
+												</Table.Cell>
+
+												<Table.Cell>
+													<Input
+														type="text"
+														placeholder="Query Key"
+														bind:value={param.key}
+														class="h-8 font-mono text-sm"
+													/>
+												</Table.Cell>
+
+												<Table.Cell>
+													<Input
+														type="text"
+														placeholder="Query Value"
+														bind:value={param.value}
+														class="h-8 font-mono text-sm"
+													/>
+												</Table.Cell>
+
+												<Table.Cell>
+													<Button
+														variant="ghost"
+														size="icon"
+														class="h-8 w-8 text-muted-foreground hover:text-destructive"
+														onclick={() => removeQueryParam(param.id)}
+													>
+														<Trash2 class="h-4 w-4" />
+													</Button>
+												</Table.Cell>
+											</Table.Row>
+										{/each}
+									</Table.Body>
+								</Table.Root>
+
+								<div class="flex justify-start px-2">
+									<Button variant="secondary" size="sm" onclick={addQueryParam}>
+										+ Add Param
+									</Button>
+								</div>
 							</Tabs.Content>
 							<Tabs.Content
 								value="headers"
