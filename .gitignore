@@ -1,0 +1,26 @@
+# Node
+api-client/node_modules/
+api-client/dist/
+api-client/build/
+
+# SvelteKit
+api-client/.svelte-kit/
+
+# Tauri
+target/
+*.exp
+*.lib
+*.pdb
+*.orig
+*.opam
+*.ocaml-ide-rc
+*.bak
+*.rej
+
+# Editor-specific
+.vscode/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
