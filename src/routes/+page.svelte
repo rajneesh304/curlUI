@@ -7,6 +7,11 @@
 	import MonacoEditor from "$lib/components/MonacoEditor.svelte";
 	import { invoke } from "@tauri-apps/api/core";
 	import { untrack } from "svelte";
+
+	// --- Response Header ---
+	let responseHeaders = $state<Record<string, string>>({}); // <-- Add this
+	let responseTab = $state("body"); // Add this to control the bottom tabs
+
 	// --- QUERY PARAMS STATE ---
 	type QueryParam = {
 		id: string;
@@ -176,6 +181,8 @@
 		isRequesting = true;
 		responseBody = "// Loading...";
 
+		responseHeaders = {}; // clear prev headers
+		responseTab = "body"; // Auto-switch back to body view on new request
 		try {
 			const processedHeaders = requestHeaders.reduce(
 				(acc, header) => {
@@ -201,6 +208,7 @@
 
 			responseStatus = res.status;
 			responseTime = res.time_ms;
+			responseHeaders = res.headers;
 
 			// Attempt to format the response if it's JSON, otherwise dump raw text
 			try {
@@ -414,45 +422,86 @@
 			<Resizable.Handle withHandle />
 
 			<Resizable.Pane defaultSize={50} minSize={20}>
-				<div class="bg-muted/5 flex h-full flex-col p-4">
-					<div class="mb-2 flex items-center justify-between">
-						<h2
-							class="text-muted-foreground text-sm font-semibold tracking-wider uppercase"
-						>
-							Response
-						</h2>
+				<div class="h-full flex flex-col p-4 bg-muted/5">
+					<Tabs.Root bind:value={responseTab} class="flex h-full flex-col">
+						<div class="mb-2 flex items-center justify-between">
+							<Tabs.List class="h-8">
+								<Tabs.Trigger value="body" class="text-xs">Body</Tabs.Trigger>
+								<Tabs.Trigger value="headers" class="text-xs">
+									Headers
+									{#if Object.keys(responseHeaders).length > 0}
+										<span
+											class="ml-2 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary"
+										>
+											{Object.keys(responseHeaders).length}
+										</span>
+									{/if}
+								</Tabs.Trigger>
+							</Tabs.List>
 
-						<div class="flex gap-4 font-mono text-xs">
-							{#if responseStatus !== null}
-								<span class="text-muted-foreground">
-									Status: <span
-										class="{responseStatus >= 200 && responseStatus < 300
-											? 'text-emerald-500'
-											: 'text-red-500'} font-bold">{responseStatus}</span
-									>
-								</span>
-								<span class="text-muted-foreground">
-									Time: <span class="font-bold text-sky-500"
-										>{responseTime}ms</span
-									>
-								</span>
-							{/if}
+							<div class="flex gap-4 text-xs font-mono">
+								{#if responseStatus !== null}
+									<span class="text-muted-foreground">
+										Status: <span
+											class="{responseStatus >= 200 && responseStatus < 300
+												? 'text-emerald-500'
+												: 'text-red-500'} font-bold">{responseStatus}</span
+										>
+									</span>
+									<span class="text-muted-foreground">
+										Time: <span class="text-sky-500 font-bold"
+											>{responseTime}ms</span
+										>
+									</span>
+								{/if}
+							</div>
 						</div>
-					</div>
 
-					<div
-						class="bg-background flex-1 overflow-y-auto rounded-md border p-4 font-mono text-sm shadow-inner"
-					>
 						<div
-							class="bg-background flex-1 overflow-hidden rounded-md border font-mono text-sm shadow-inner"
+							class="flex-1 rounded-md border bg-background font-mono text-sm overflow-hidden shadow-inner relative"
 						>
-							<MonacoEditor
-								bind:value={responseBody}
-								language="json"
-								readOnly={true}
-							/>
+							<Tabs.Content value="body" class="m-0 h-full absolute inset-0">
+								<MonacoEditor
+									bind:value={responseBody}
+									language="json"
+									readOnly={true}
+								/>
+							</Tabs.Content>
+
+							<Tabs.Content
+								value="headers"
+								class="m-0 h-full absolute inset-0 overflow-y-auto p-0"
+							>
+								{#if Object.keys(responseHeaders).length === 0}
+									<div
+										class="flex h-full items-center justify-center text-muted-foreground text-xs"
+									>
+										No headers received yet.
+									</div>
+								{:else}
+									<Table.Root>
+										<Table.Header class="bg-muted/50">
+											<Table.Row>
+												<Table.Head class="w-1/3">Key</Table.Head>
+												<Table.Head>Value</Table.Head>
+											</Table.Row>
+										</Table.Header>
+										<Table.Body>
+											{#each Object.entries(responseHeaders) as [key, value]}
+												<Table.Row>
+													<Table.Cell
+														class="font-semibold text-muted-foreground"
+														>{key}</Table.Cell
+													>
+													<Table.Cell class="break-all">{value}</Table.Cell>
+												</Table.Row>
+											{/each}
+										</Table.Body>
+									</Table.Root>
+								{/if}
+							</Tabs.Content>
 						</div>
-					</div>
+					</Tabs.Root>
 				</div>
 			</Resizable.Pane>
 		</Resizable.PaneGroup>
