@@ -7,6 +7,13 @@
 	import MonacoEditor from "$lib/components/MonacoEditor.svelte";
 	import { invoke } from "@tauri-apps/api/core";
 	import { untrack } from "svelte";
+	import AuthTab from "$lib/components/AuthTab.svelte";
+
+	// --- AUTH STATE ---
+	let authType = $state("none");
+	let bearerToken = $state("");
+	let basicUsername = $state("");
+	let basicPassword = $state("");
 
 	// For Send dropdown
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
@@ -186,6 +193,30 @@
 		isRequesting = true;
 		responseBody = "// Loading...";
 
+		// --- Authentication Header section ---
+		// 1. Process your manual table headers
+		const processedHeaders = requestHeaders.reduce(
+			(acc, header) => {
+				if (header.enabled && header.key.trim() !== "") {
+					acc[header.key.trim()] = header.value.trim();
+				}
+				return acc;
+			},
+			{} as Record<string, string>,
+		);
+
+		// 2. Inject the Auth Header dynamically
+		if (authType === "bearer" && bearerToken.trim() !== "") {
+			processedHeaders["Authorization"] = `Bearer ${bearerToken.trim()}`;
+		} else if (
+			authType === "basic" &&
+			(basicUsername !== "" || basicPassword !== "")
+		) {
+			// btoa() is a native browser function that perfectly handles Base64 encoding
+			const encodedCredentials = btoa(`${basicUsername}:${basicPassword}`);
+			processedHeaders["Authorization"] = `Basic ${encodedCredentials}`;
+		}
+
 		responseHeaders = {}; // clear prev headers
 		responseTab = "body"; // Auto-switch back to body view on new request
 		try {
@@ -231,10 +262,21 @@
 
 	// Copy request as cURL
 	function copyAsCurl() {
-		if (!url) return;
-
 		// Start the command with the method and URL
 		let curlStr = `curl -X ${method} '${url}'`;
+
+		// Inject Auth Header
+		if (authType === "bearer" && bearerToken.trim() !== "") {
+			const safeToken = bearerToken.replace(/'/g, "'\\''");
+			curlStr += ` \\\n  -H 'Authorization: Bearer ${safeToken}'`;
+		} else if (
+			authType === "basic" &&
+			(basicUsername !== "" || basicPassword !== "")
+		) {
+			const encodedCredentials = btoa(`${basicUsername}:${basicPassword}`);
+			curlStr += ` \\\n  -H 'Authorization: Basic ${encodedCredentials}'`;
+		}
+		if (!url) return;
 
 		// Inject active headers
 		requestHeaders.forEach((h) => {
@@ -461,10 +503,13 @@
 									</Button>
 								</div>
 							</Tabs.Content>
-							<Tabs.Content value="auth" class="m-0 h-full">
-								<p class="text-muted-foreground text-sm">
-									Authentication settings will go here.
-								</p>
+							<Tabs.Content value="auth" class="m-0 h-full flex flex-col">
+								<AuthTab
+									bind:authType
+									bind:bearerToken
+									bind:basicUsername
+									bind:basicPassword
+								/>
 							</Tabs.Content>
 							<Tabs.Content value="body" class="m-0 h-full">
 								<MonacoEditor bind:value={requestBody} language="json" />
