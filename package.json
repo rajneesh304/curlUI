@@ -47,6 +47,7 @@
 	},
 	"dependencies": {
 		"@tauri-apps/api": "^2.10.1",
+		"lucide-svelte": "^0.564.0",
 		"monaco-editor": "^0.55.1"
 	}
 }
